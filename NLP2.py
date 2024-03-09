@@ -60,6 +60,7 @@ with open("Assignment_2_modified_ Dataset.csv", 'r', encoding='utf-8') as file:
 #    processed_data.append([processed_review, sentiment])
 
 
+
 print(review_data[1])
 # print(processed_data[1])
 np.random.seed(1234)
@@ -81,19 +82,20 @@ X_train, y_train = zip(*train_data)
 X_val, y_val = zip(*val_data)
 X_test, y_test = zip(*test_data)
 
+all_words = [word for review in X_train for word in review]
+
+label_encoder = LabelEncoder()
+label_encoder.fit(all_words)
+X_train = [label_encoder.transform(review) for review in review_data]
+
 X_train = np.array(X_train)
 y_train = np.array(y_train)
 X_val = np.array(X_val)
 y_val = np.array(y_val)
 X_test = np.array(X_test)
 y_test = np.array(y_test)
-all_words = [word for review in X_train for word in review]
 
-label_encoder = LabelEncoder()
-label_encoder.fit(all_words)
-X_train = label_encoder.transform(X_train)
 ## Normalize your splits
-
 size_input = X_train.shape[0]
 # print(size_input)
 size_hidden1 = 128
@@ -116,6 +118,7 @@ print(num_classes)
 y_train = tf.keras.utils.to_categorical(y_train_encoded, num_classes=num_classes)
 y_val = tf.keras.utils.to_categorical(y_val_encoded, num_classes=num_classes)
 y_test = tf.keras.utils.to_categorical(y_test_encoded, num_classes=num_classes)
+
 
 
 # Define class to build mlp model
@@ -173,9 +176,9 @@ class MLP(object):
     y_true_tf = tf.cast(y_true, dtype=tf.float32)
     y_pred_tf = tf.cast(y_pred, dtype=tf.float32)
     cce = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
-    # loss_x = cce(y_true_tf, y_pred_tf)
+    loss_x = cce(y_true_tf, y_pred_tf)
     # Use keras or tf_softmax, both should work for any given model
-    loss_x = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_pred_tf, labels=y_true_tf))
+    # loss_x = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_pred_tf, labels=y_true_tf))
 
     return loss_x
 
@@ -225,13 +228,13 @@ optimizer = tf.keras.optimizers.Adam(learning_rate = 1e-4)
 embedding_dim = 2
 # Initialize model using CPU
 
-mlp_on_cpu = MLP(size_input, size_hidden1, size_hidden2, size_hidden3, size_output, embedding_dim, device='cpu')
-X_train_emb = mlp_on_cpu.embedding(X_train)
+mlp_on_cpu = MLP(size_input, size_hidden1, size_hidden2, size_hidden3, num_classes, embedding_dim, device='cpu')
+
 time_start = time.time()
 
 for epoch in range(NUM_EPOCHS):
     
-    y_pred = mlp_on_cpu.forward(X_train_emb)
+    y_pred = mlp_on_cpu.forward(X_train)
 
     y_pred_softmax = tf.nn.softmax(y_pred)
 
@@ -239,7 +242,7 @@ for epoch in range(NUM_EPOCHS):
     loss = mlp_on_cpu.loss(y_pred_softmax, y_train)
 
     # Backpropagation
-    grads = mlp_on_cpu.backward(X_train_emb, y_train)
+    grads = mlp_on_cpu.backward(X_train, y_train)
 
     # Update weights
     optimizer.apply_gradients(zip(grads, mlp_on_cpu.variables))
